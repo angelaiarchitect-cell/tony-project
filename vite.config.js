@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['tony-icon.svg', 'tony-icon-192.png', 'tony-icon-512.png'],
+      includeAssets: ['tony-icon.svg', 'tony-icon-192.png', 'tony-icon-512.png', 'apple-touch-icon.png', 'tony-cover.jpg'],
       manifest: {
         name: 'Tony - AI Workspace Assistant',
         short_name: 'Tony',
@@ -45,6 +45,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
