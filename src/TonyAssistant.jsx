@@ -84,12 +84,44 @@ function parseWhatsAppLinks(text) {
   return parts.length > 0 ? parts : [{ type: "text", content: text }];
 }
 
-// ─── VOICE HOOK ───
+// ─── JARVIS VOICE HOOK ───
+const CONFIRMATIONS = [
+  "Yes, boss.", "On it.", "Coming right up.", "Consider it done.",
+  "Done.", "Handled.", "Already on it.", "You got it.",
+  "Right away.", "One moment.", "Say no more.",
+];
+
 function useVoice(onResult, onError) {
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const recognitionRef = useRef(null);
+  const jarvisVoiceRef = useRef(null);
   const supported = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+
+  // Find the best Jarvis-like voice (deep, male, preferably British)
+  useEffect(() => {
+    if (!window.speechSynthesis) return;
+    const pickVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices.length) return;
+      // Priority: British male > any male > "Daniel" > "Google UK" > default
+      const priorities = [
+        (v) => /daniel/i.test(v.name),
+        (v) => /\b(uk|british)\b/i.test(v.name) && /male/i.test(v.name),
+        (v) => /\b(uk|british)\b/i.test(v.name),
+        (v) => /\b(james|arthur|oliver|william)\b/i.test(v.name),
+        (v) => v.lang.startsWith("en") && /male/i.test(v.name),
+        (v) => v.lang.startsWith("en-GB"),
+        (v) => v.lang.startsWith("en"),
+      ];
+      for (const test of priorities) {
+        const match = voices.find(test);
+        if (match) { jarvisVoiceRef.current = match; return; }
+      }
+    };
+    pickVoice();
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+  }, []);
 
   useEffect(() => {
     if (!supported) return;
@@ -104,13 +136,29 @@ function useVoice(onResult, onError) {
 
   const startListening = () => { if (recognitionRef.current) { recognitionRef.current.start(); setIsListening(true); } };
   const stopListening = () => { if (recognitionRef.current) { recognitionRef.current.stop(); setIsListening(false); } };
+
   const speak = (text) => {
     if (!voiceEnabled || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text.replace(/[*_~`#]/g, "").slice(0, 500));
-    u.rate = 1.05; u.pitch = 0.95; window.speechSynthesis.speak(u);
+    const clean = text.replace(/[*_~`#\[\]]/g, "").slice(0, 500);
+    const u = new SpeechSynthesisUtterance(clean);
+    u.rate = 0.92; u.pitch = 0.82; // Deeper, more deliberate — Jarvis energy
+    if (jarvisVoiceRef.current) u.voice = jarvisVoiceRef.current;
+    window.speechSynthesis.speak(u);
   };
-  return { isListening, startListening, stopListening, speak, supported, voiceEnabled, setVoiceEnabled };
+
+  // Short confirmation for tool actions — doesn't read back the whole response
+  const speakConfirmation = (toolsUsed) => {
+    if (!voiceEnabled || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const phrase = CONFIRMATIONS[Math.floor(Math.random() * CONFIRMATIONS.length)];
+    const u = new SpeechSynthesisUtterance(phrase);
+    u.rate = 0.95; u.pitch = 0.82;
+    if (jarvisVoiceRef.current) u.voice = jarvisVoiceRef.current;
+    window.speechSynthesis.speak(u);
+  };
+
+  return { isListening, startListening, stopListening, speak, speakConfirmation, supported, voiceEnabled, setVoiceEnabled };
 }
 
 // ─── DATA STORE ───
@@ -203,7 +251,8 @@ function WhatsAppButton({ phone, message }) {
 
 function MessageBubble({ msg, isMobile }) {
   const isUser = msg.role === "user";
-  const parts = isUser ? [{ type: "text", content: msg.content }] : parseWhatsAppLinks(msg.content);
+  const displayText = msg.displayText || (typeof msg.content === "string" ? msg.content : "");
+  const parts = isUser ? [{ type: "text", content: displayText }] : parseWhatsAppLinks(typeof msg.content === "string" ? msg.content : "");
   return (
     <div style={{
       display: "flex", justifyContent: isUser ? "flex-end" : "flex-start",
@@ -233,6 +282,15 @@ function MessageBubble({ msg, isMobile }) {
         {msg.viaVoice && (
           <div style={{ fontSize: 9, color: isUser ? "rgba(255,255,255,0.6)" : T.gray, marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
             🎤 Voice
+          </div>
+        )}
+        {/* Show image thumbnail if message has an attached image */}
+        {msg.hasImage && msg.imageUrl && (
+          <div style={{ marginBottom: 8 }}>
+            <img src={msg.imageUrl} alt="Attached" style={{
+              maxWidth: "100%", maxHeight: 200, borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.15)",
+            }} />
           </div>
         )}
         {parts.map((part, i) =>
@@ -590,6 +648,30 @@ function SitePanel({ siteFiles, deadlines, notes, isMobile }) {
 
 // ─── MAIN APP ───
 
+// ─── PWA INSTALL HOOK ───
+function usePWAInstall() {
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+  useEffect(() => {
+    // Check if already installed
+    if (window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone) {
+      setIsInstalled(true); return;
+    }
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener("beforeinstallprompt", handler);
+    window.addEventListener("appinstalled", () => setIsInstalled(true));
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+  const install = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === "accepted") setIsInstalled(true);
+    setInstallPrompt(null);
+  };
+  return { canInstall: !!installPrompt && !isInstalled, isInstalled, install };
+}
+
 export default function TonyAssistant() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -599,15 +681,63 @@ export default function TonyAssistant() {
   const [showSetup, setShowSetup] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState(null);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
+  const imageInputRef = useRef(null);
   const isMobile = useIsMobile();
   const store = useStore();
+  const pwa = usePWAInstall();
 
   const voice = useVoice(
     (transcript) => { setInput(""); sendMessageDirect(transcript, true); },
     () => {}
   );
+
+  // Image upload handler
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = reader.result.split(",")[1];
+      setImagePreview({ base64, type: file.type, name: file.name, url: reader.result });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ""; // Reset so same file can be re-selected
+  };
+
+  const sendWithImage = useCallback(async () => {
+    if (loading) return;
+    const text = input.trim() || "What is this? Give me a brief, business-like analysis.";
+    const content = [
+      { type: "image", source: { type: "base64", media_type: imagePreview.type, data: imagePreview.base64 } },
+      { type: "text", text },
+    ];
+    const userMsg = { role: "user", content, displayText: text, hasImage: true, imageUrl: imagePreview.url };
+    setMessages((prev) => {
+      const newMsgs = [...prev, userMsg];
+      processImageMessage(newMsgs);
+      return newMsgs;
+    });
+    setInput(""); setImagePreview(null);
+  }, [input, imagePreview, loading]);
+
+  const processImageMessage = async (allMessages) => {
+    setLoading(true);
+    try {
+      const apiMessages = allMessages.filter((m) => !m.isConfirmation).map((m) => {
+        if (Array.isArray(m.content)) return { role: m.role, content: m.content };
+        return { role: m.role, content: m.content };
+      });
+      const context = { bills: store.bills, deadlines: store.deadlines, expenses: store.expenses };
+      const result = await callTony(apiMessages, context);
+      setMessages((prev) => [...prev, { role: "assistant", content: result.text, toolsUsed: result.toolsUsed }]);
+    } catch (err) {
+      setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${err.message}` }]);
+    } finally { setLoading(false); }
+  };
 
   const sendMessageDirect = useCallback(async (text, viaVoice = false) => {
     if (!text.trim() || loading) return;
@@ -635,11 +765,22 @@ export default function TonyAssistant() {
       setLoading(false); return;
     }
     try {
-      const apiMessages = allMessages.filter((m) => !m.isConfirmation).map((m) => ({ role: m.role, content: m.content }));
+      const apiMessages = allMessages.filter((m) => !m.isConfirmation).map((m) => {
+        // Support image messages (content array with text + image blocks)
+        if (Array.isArray(m.content)) return { role: m.role, content: m.content };
+        return { role: m.role, content: m.content };
+      });
       const context = { bills: store.bills, deadlines: store.deadlines, expenses: store.expenses };
       const result = await callTony(apiMessages, context);
       setMessages((prev) => [...prev, { role: "assistant", content: result.text, toolsUsed: result.toolsUsed }]);
-      if (viaVoice) voice.speak(result.text);
+      // If tools were used, speak a brief confirmation instead of reading everything
+      if (viaVoice) {
+        if (result.toolsUsed?.length > 0) {
+          voice.speakConfirmation(result.toolsUsed);
+        } else {
+          voice.speak(result.text);
+        }
+      }
     } catch (err) {
       const errMsg = `Error: ${err.message}. Please try again.`;
       setMessages((prev) => [...prev, { role: "assistant", content: errMsg }]);
@@ -657,7 +798,7 @@ export default function TonyAssistant() {
   useEffect(() => {
     setMessages([{
       role: "assistant",
-      content: "Hey there. I'm Tony — your AI workspace assistant, powered by Claude. Not just a chatbot. I actually do things.\n\nHere's what I'm running for you:\n\n📅  Google Calendar — I create events, set reminders, find free time. Real access, not pretend.\n📊  Google Sheets — Need a budget tracker? Expense report? I'll build it as an actual spreadsheet.\n🗓️  Day Organizer — \"Organize my day\" and I'll pull your calendar, deadlines, and bills into a game plan.\n📺  Roku — Say \"play Netflix\" and I'll launch it. I control your Roku — apps, playback, search, the works.\n💰  Budget & Bills — Track every dollar. I'll set calendar reminders so nothing sneaks past.\n⏰  Deadlines — Priority-ranked, project-tagged, calendar-synced.\n📝  Meeting Notes — Structured, clean, actionable.\n📁  Site 11250 — Your project command center.\n📱  WhatsApp — Compose and send with one tap.\n\n🎤 Hit the mic or say \"Hey Tony\" — I'm listening.\n🔒 I don't delete anything or touch your money without you saying so. Twice.\n\nSo — what are we tackling first?",
+      content: "Hey there. I'm Tony — your AI workspace assistant, powered by Claude. Not just a chatbot. I actually do things.\n\nHere's what I'm running for you:\n\n📅  Google Calendar — I create events, set reminders, find free time. Real access, not pretend.\n📊  Google Sheets — Need a budget tracker? Expense report? I'll build it as an actual spreadsheet.\n🗓️  Day Organizer — \"Organize my day\" and I'll pull your calendar, deadlines, and bills into a game plan.\n📺  Roku — Say \"play Netflix\" and I'll launch it. I control your Roku — apps, playback, search, the works.\n💰  Budget & Bills — Track every dollar. I'll set calendar reminders so nothing sneaks past.\n⏰  Deadlines — Priority-ranked, project-tagged, calendar-synced.\n📝  Meeting Notes — Structured, clean, actionable.\n📁  Site 11250 — Your project command center.\n📱  WhatsApp — Compose and send with one tap.\n📸  Screenshot Analysis — Snap an email or document and I'll give you context + a brief response.\n\n🎤 Hit the mic — I'll keep it short. \"Yes, boss\" — not a novel.\n📎 Tap the image icon to send me screenshots for quick analysis.\n🔒 I don't delete anything or touch your money without you saying so. Twice.\n\nSo — what are we tackling first?",
     }]);
   }, []);
 
@@ -688,6 +829,7 @@ export default function TonyAssistant() {
     { label: "Bill Reminders", prompt: "Set up calendar reminders for my upcoming unpaid bills." },
     { label: "Add Deadline", prompt: "I need to add a new work deadline. Ask me for the details." },
     { label: "Site 11250 Status", prompt: "Give me a status update on Site 11250." },
+    { label: "Analyze Screenshot", prompt: null, isImageAction: true },
   ];
 
   return (
@@ -999,6 +1141,20 @@ export default function TonyAssistant() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {pwa.canInstall && (
+              <button onClick={pwa.install} title="Install Tony App" style={{
+                background: T.greenDim, border: `1px solid ${T.green}33`, color: T.green,
+                padding: "6px 12px", borderRadius: 8, cursor: "pointer", fontSize: 11,
+                fontFamily: T.font, fontWeight: 600, display: "flex", alignItems: "center", gap: 4,
+              }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                Install
+              </button>
+            )}
             {voice.supported && (
               <button onClick={() => voice.setVoiceEnabled(!voice.voiceEnabled)} title={voice.voiceEnabled ? "Mute TTS" : "Enable TTS"} style={{
                 background: "transparent", border: `1px solid ${T.border}`, color: voice.voiceEnabled ? T.white : T.grayDark,
@@ -1041,26 +1197,64 @@ export default function TonyAssistant() {
             {messages.length <= 2 && (
               <div style={{ padding: isMobile ? "0 12px 8px" : "0 24px 12px", display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {(isMobile ? QUICK.slice(0, 4) : QUICK).map((q) => (
-                  <button key={q.label} onClick={() => sendMessage(q.prompt)} disabled={loading} style={{
-                    background: T.bgCard, border: `1px solid ${T.border}`, color: T.whiteMuted,
+                  <button key={q.label} onClick={() => {
+                    if (q.isImageAction) imageInputRef.current?.click();
+                    else sendMessage(q.prompt);
+                  }} disabled={loading} style={{
+                    background: q.isImageAction ? T.redDim : T.bgCard,
+                    border: `1px solid ${q.isImageAction ? `${T.red}33` : T.border}`,
+                    color: q.isImageAction ? T.redLight : T.whiteMuted,
                     padding: "8px 14px", borderRadius: 20, cursor: loading ? "not-allowed" : "pointer",
                     fontSize: 11, fontFamily: T.font, fontWeight: 500,
                     opacity: loading ? 0.4 : 1, transition: "all 0.2s",
-                  }}>{q.label}</button>
+                  }}>{q.isImageAction ? "📸 " : ""}{q.label}</button>
                 ))}
               </div>
             )}
 
+            {/* Image Preview */}
+            {imagePreview && (
+              <div style={{
+                padding: isMobile ? "8px 12px 0" : "8px 24px 0", background: T.bgSidebar,
+                borderTop: `1px solid ${T.border}`,
+              }}>
+                <div style={{
+                  display: "inline-flex", alignItems: "center", gap: 8,
+                  background: T.bgCard, borderRadius: 10, padding: 8,
+                  border: `1px solid ${T.border}`,
+                }}>
+                  <img src={imagePreview.url} alt="Preview" style={{
+                    height: 48, width: 48, objectFit: "cover", borderRadius: 6,
+                  }} />
+                  <div>
+                    <div style={{ fontSize: 11, color: T.white, fontWeight: 500 }}>{imagePreview.name}</div>
+                    <div style={{ fontSize: 10, color: T.gray }}>Ready to analyze</div>
+                  </div>
+                  <button onClick={() => setImagePreview(null)} style={{
+                    background: "transparent", border: "none", color: T.gray,
+                    cursor: "pointer", fontSize: 16, padding: "2px 6px",
+                  }}>x</button>
+                </div>
+              </div>
+            )}
+
             {/* Input */}
-            <div style={{ padding: isMobile ? "8px 12px 12px" : "12px 24px 16px", background: T.bgSidebar, borderTop: `1px solid ${T.border}` }}>
+            <div style={{ padding: isMobile ? "8px 12px 12px" : "12px 24px 16px", background: T.bgSidebar, borderTop: imagePreview ? "none" : `1px solid ${T.border}` }}>
               <div style={{
                 display: "flex", gap: 8, alignItems: "flex-end",
                 background: T.bgInput, borderRadius: 14,
                 border: `1px solid ${T.border}`, padding: "4px 4px 4px 16px",
                 transition: "border-color 0.2s",
               }}>
-                <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown}
-                  placeholder="Talk to Tony..."
+                <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (imagePreview) sendWithImage();
+                      else sendMessage(input);
+                    }
+                  }}
+                  placeholder={imagePreview ? "Describe what you need (or just send)..." : "Talk to Tony..."}
                   disabled={loading} rows={1}
                   style={{
                     flex: 1, background: "transparent", border: "none", outline: "none", resize: "none",
@@ -1069,6 +1263,22 @@ export default function TonyAssistant() {
                   }}
                   onInput={(e) => { e.target.style.height = "auto"; e.target.style.height = Math.min(e.target.scrollHeight, 100) + "px"; }}
                 />
+                {/* Image upload button */}
+                <input ref={imageInputRef} type="file" accept="image/*" capture="environment" onChange={handleImageUpload} style={{ display: "none" }} />
+                <button onClick={() => imageInputRef.current?.click()} disabled={loading} title="Attach screenshot or image" style={{
+                  width: 40, height: 40, borderRadius: 10, border: "none",
+                  cursor: loading ? "not-allowed" : "pointer",
+                  background: imagePreview ? T.greenDim : "transparent",
+                  color: imagePreview ? T.green : T.gray,
+                  display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                  transition: "all 0.2s",
+                }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                </button>
                 {voice.supported && (
                   <button
                     onClick={() => voice.isListening ? voice.stopListening() : voice.startListening()}
@@ -1091,14 +1301,14 @@ export default function TonyAssistant() {
                     </svg>
                   </button>
                 )}
-                <button onClick={() => sendMessage(input)} disabled={!input.trim() || loading} style={{
+                <button onClick={() => imagePreview ? sendWithImage() : sendMessage(input)} disabled={(!input.trim() && !imagePreview) || loading} style={{
                   width: 40, height: 40, borderRadius: 10, border: "none",
-                  cursor: !input.trim() || loading ? "not-allowed" : "pointer",
-                  background: input.trim() && !loading ? T.red : "transparent",
-                  color: input.trim() && !loading ? "#fff" : T.grayDark,
+                  cursor: (!input.trim() && !imagePreview) || loading ? "not-allowed" : "pointer",
+                  background: (input.trim() || imagePreview) && !loading ? T.red : "transparent",
+                  color: (input.trim() || imagePreview) && !loading ? "#fff" : T.grayDark,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   fontSize: 16, flexShrink: 0, transition: "all 0.2s",
-                  boxShadow: input.trim() && !loading ? `0 2px 12px ${T.redDim}` : "none",
+                  boxShadow: (input.trim() || imagePreview) && !loading ? `0 2px 12px ${T.redDim}` : "none",
                 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="12" y1="19" x2="12" y2="5" />

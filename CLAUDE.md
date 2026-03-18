@@ -37,10 +37,46 @@
 - Roku bridge: `cd roku-bridge && ROKU_IP=192.168.4.26 ROKU_BRIDGE_KEY=tony-roku-secret node server.js`
 - Cloudflare tunnel: `npx cloudflared tunnel --url http://localhost:9090`
 
+## Mobile Responsive
+- Uses `useIsMobile()` hook with `window.matchMedia` (breakpoint: 768px) — NOT CSS media queries
+- Mobile: sidebar hidden, replaced by bottom tab bar (6 tabs) + hamburger slide-over menu
+- Desktop: sidebar renders normally with collapsible toggle
+- All panels accept `isMobile` prop for responsive padding (24→16), grids (3col→2col), and sizing
+- `MessageBubble` takes `isMobile` prop for wider bubbles (88% vs 75%) and smaller avatars
+- Quick actions limited to 4 on mobile (vs 8 on desktop)
+- Bottom tab bar uses `env(safe-area-inset-bottom)` for iPhone home indicator
+- `viewport-fit=cover` in index.html required for iOS safe area support
+- PWA shortcuts in manifest for Android long-press actions
+- URL param `?view=chat` support for shortcut deep-linking
+
+## Voice (Jarvis Mode)
+- TTS uses Web Speech API with Jarvis-like voice selection (British male preferred: Daniel > UK English > any male)
+- Voice settings: rate 0.92, pitch 0.82 — deeper and more deliberate than default
+- When tools are executed, speaks brief confirmations ("Yes, boss", "On it", "Done") instead of reading full response
+- `CONFIRMATIONS` array at top of TonyAssistant.jsx contains the randomized short phrases
+- `speakConfirmation()` method on voice hook for tool-action responses, `speak()` for normal text responses
+- System prompt instructs Claude to keep action confirmations to ONE line max
+
+## Image/Screenshot Analysis
+- Users can attach images (email screenshots, documents) via the image button in chat input
+- Images sent as base64 in Claude API content array: `[{type: "image", source: {type: "base64", ...}}, {type: "text", text: "..."}]`
+- `handleImageUpload()` reads file as DataURL, stores in `imagePreview` state
+- `sendWithImage()` sends the multi-part content to the API
+- `MessageBubble` renders image thumbnails for messages with `hasImage` flag
+- On mobile, `capture="environment"` allows direct camera capture
+- System prompt instructs Claude to analyze screenshots with: brief context, key points, suggested response
+
+## PWA Install
+- `usePWAInstall()` hook captures `beforeinstallprompt` event
+- Shows green "Install" button in header when install prompt is available
+- Detects if already installed via `display-mode: standalone` media query
+- Works on Chrome/Edge (Android + desktop); iOS uses "Add to Home Screen" in Safari
+
 ## Style
 - Colors: Red (#E53935), Green (#00E676), Black (#0A0A0A), White
 - Fonts: Inter (UI), JetBrains Mono (code)
 - All styling is inline via design token object `T` — no CSS files
+- Responsive approach: React state (useIsMobile hook), NOT CSS media queries — because all styles are inline
 
 ## Known Gotchas
 - PWA service worker will cache aggressively — users may need to unregister old SW after changes
