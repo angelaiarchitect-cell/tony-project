@@ -840,9 +840,11 @@ export default function TonyAssistant() {
 
   return (
     <div style={{
-      width: "100%", height: "100vh", display: "flex",
+      width: "100%", height: isMobile ? "100dvh" : "100vh", display: "flex",
       flexDirection: isMobile ? "column" : "row",
       background: T.bg, fontFamily: T.font, color: T.whiteMuted, overflow: "hidden",
+      position: "fixed", top: 0, left: 0,
+      overscrollBehavior: "none", touchAction: "none",
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
@@ -854,6 +856,7 @@ export default function TonyAssistant() {
         @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
         @keyframes slideInLeft{from{transform:translateX(-100%)}to{transform:translateX(0)}}
         *{box-sizing:border-box;margin:0;padding:0}
+        html,body,#root{height:100%;overflow:hidden;overscroll-behavior:none;position:fixed;width:100%}
         ::-webkit-scrollbar{width:4px}
         ::-webkit-scrollbar-track{background:transparent}
         ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.06);border-radius:2px}
@@ -1117,12 +1120,12 @@ export default function TonyAssistant() {
       </div>}
 
       {/* Main Area */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, minHeight: 0, overflow: "hidden" }}>
         {/* Header */}
         <div style={{
           padding: isMobile ? "10px 16px" : "10px 24px", borderBottom: `1px solid ${T.border}`,
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          background: T.bgSidebar,
+          background: T.bgSidebar, flexShrink: 0,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             {isMobile && (
@@ -1180,7 +1183,13 @@ export default function TonyAssistant() {
         {activeView === "chat" ? (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
             {/* Messages */}
-            <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "12px 12px" : "20px 24px" }}>
+            <div style={{
+              flex: 1, overflowY: "auto", padding: isMobile ? "12px 12px" : "20px 24px",
+              WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
+              touchAction: "pan-y",
+              minHeight: 0,
+            }}>
               {messages.map((msg, i) => <MessageBubble key={i} msg={msg} isMobile={isMobile} />)}
               {loading && (
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
@@ -1245,7 +1254,14 @@ export default function TonyAssistant() {
             )}
 
             {/* Input */}
-            <div style={{ padding: isMobile ? "8px 12px 12px" : "12px 24px 16px", background: T.bgSidebar, borderTop: imagePreview ? "none" : `1px solid ${T.border}` }}>
+            <div style={{
+              padding: isMobile ? "8px 12px 12px" : "12px 24px 16px",
+              paddingBottom: isMobile ? "max(12px, env(safe-area-inset-bottom))" : 16,
+              background: T.bgSidebar,
+              borderTop: imagePreview ? "none" : `1px solid ${T.border}`,
+              flexShrink: 0,
+              touchAction: "manipulation",
+            }}>
               <div style={{
                 display: "flex", gap: 8, alignItems: "flex-end",
                 background: T.bgInput, borderRadius: 14,
@@ -1346,7 +1362,7 @@ export default function TonyAssistant() {
           display: "flex", justifyContent: "space-around", alignItems: "center",
           borderTop: `1px solid ${T.border}`, background: T.bgSidebar,
           padding: "6px 0 max(8px, env(safe-area-inset-bottom))",
-          flexShrink: 0,
+          flexShrink: 0, touchAction: "manipulation",
         }}>
           {NAV.map((n) => (
             <button key={n.id} onClick={() => setActiveView(n.id)} style={{
