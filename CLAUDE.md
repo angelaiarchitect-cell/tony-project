@@ -18,7 +18,9 @@
 
 ## Integrations
 - **Google Calendar + Sheets + Gmail**: OAuth 2.0, refresh token stored in Vercel env
-- **Gmail**: `lib/gmail.js` — list, read, search, draft, send emails via REST API. Scope: `gmail.modify`
+- **Gmail**: `lib/gmail.js` — list, read, search, draft, send emails + download/analyze attachments via REST API. Scope: `gmail.modify`
+  - Attachment support: CSV, TSV, JSON, TXT, HTML parsed directly; images as base64; binary (PDF, XLSX) returns metadata
+  - Tools: `gmail_get_attachment` (single file), `gmail_analyze_attachments` (all files on an email)
 - **Roku**: Local bridge server (port 9090) exposed via Cloudflare tunnel
 - **WhatsApp**: Message composition with clickable send links
 
