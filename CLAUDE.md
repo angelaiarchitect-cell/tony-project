@@ -17,7 +17,8 @@
 - `vite.config.js` — Build config with PWA manifest and workbox
 
 ## Integrations
-- **Google Calendar + Sheets**: OAuth 2.0, refresh token stored in Vercel env
+- **Google Calendar + Sheets + Gmail**: OAuth 2.0, refresh token stored in Vercel env
+- **Gmail**: `lib/gmail.js` — list, read, search, draft, send emails via REST API. Scope: `gmail.modify`
 - **Roku**: Local bridge server (port 9090) exposed via Cloudflare tunnel
 - **WhatsApp**: Message composition with clickable send links
 

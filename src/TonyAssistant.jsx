@@ -16,6 +16,11 @@ const TOOL_LABELS = {
   roku_remote_command: "🎮 Roku Remote",
   roku_get_status: "📺 Roku Status",
   roku_type_text: "⌨️ Roku Input",
+  gmail_list_emails: "📧 Gmail",
+  gmail_read_email: "📧 Gmail",
+  gmail_search: "🔍 Gmail Search",
+  gmail_create_draft: "✉️ Draft",
+  gmail_send_email: "📤 Sent",
 };
 
 // ─── DESIGN TOKENS ───
@@ -798,7 +803,7 @@ export default function TonyAssistant() {
   useEffect(() => {
     setMessages([{
       role: "assistant",
-      content: "Hey there. I'm Tony — your AI workspace assistant, powered by Claude. Not just a chatbot. I actually do things.\n\nHere's what I'm running for you:\n\n📅  Google Calendar — I create events, set reminders, find free time. Real access, not pretend.\n📊  Google Sheets — Need a budget tracker? Expense report? I'll build it as an actual spreadsheet.\n🗓️  Day Organizer — \"Organize my day\" and I'll pull your calendar, deadlines, and bills into a game plan.\n📺  Roku — Say \"play Netflix\" and I'll launch it. I control your Roku — apps, playback, search, the works.\n💰  Budget & Bills — Track every dollar. I'll set calendar reminders so nothing sneaks past.\n⏰  Deadlines — Priority-ranked, project-tagged, calendar-synced.\n📝  Meeting Notes — Structured, clean, actionable.\n📁  Site 11250 — Your project command center.\n📱  WhatsApp — Compose and send with one tap.\n📸  Screenshot Analysis — Snap an email or document and I'll give you context + a brief response.\n\n🎤 Hit the mic — I'll keep it short. \"Yes, boss\" — not a novel.\n📎 Tap the image icon to send me screenshots for quick analysis.\n🔒 I don't delete anything or touch your money without you saying so. Twice.\n\nSo — what are we tackling first?",
+      content: "Hey there. I'm Tony — your AI workspace assistant, powered by Claude. Not just a chatbot. I actually do things.\n\nHere's what I'm running for you:\n\n📅  Google Calendar — I create events, set reminders, find free time. Real access, not pretend.\n📧  Gmail — I read your inbox, search emails, draft replies, and send. Real access.\n📊  Google Sheets — Need a budget tracker? Expense report? I'll build it as an actual spreadsheet.\n🗓️  Day Organizer — \"Organize my day\" and I'll pull your calendar, deadlines, and bills into a game plan.\n📺  Roku — Say \"play Netflix\" and I'll launch it. I control your Roku — apps, playback, search, the works.\n💰  Budget & Bills — Track every dollar. I'll set calendar reminders so nothing sneaks past.\n⏰  Deadlines — Priority-ranked, project-tagged, calendar-synced.\n📝  Meeting Notes — Structured, clean, actionable.\n📁  Site 11250 — Your project command center.\n📱  WhatsApp — Compose and send with one tap.\n📸  Screenshot Analysis — Snap an email or document and I'll give you context + a brief response.\n\n🎤 Hit the mic — I'll keep it short. \"Yes, boss\" — not a novel.\n📎 Tap the image icon to send me screenshots for quick analysis.\n🔒 I don't delete anything or touch your money without you saying so. Twice.\n\nSo — what are we tackling first?",
     }]);
   }, []);
 
@@ -823,6 +828,7 @@ export default function TonyAssistant() {
   const QUICK = [
     { label: "Organize My Day", prompt: "Organize my day — pull my calendar, deadlines, and bills into a plan." },
     { label: "Today's Schedule", prompt: "What's on my calendar for today?" },
+    { label: "Check Email", prompt: "Check my inbox — any unread emails I should know about?" },
     { label: "Create Event", prompt: "I need to create a calendar event. Ask me for the details." },
     { label: "Create Spreadsheet", prompt: "I need to create a Google Sheet. Ask me what it should contain." },
     { label: "Launch Netflix", prompt: "Launch Netflix on my Roku." },

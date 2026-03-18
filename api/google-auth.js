@@ -86,6 +86,7 @@ export default async function handler(req, res) {
   const scopes = [
     "https://www.googleapis.com/auth/calendar",
     "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/gmail.modify",
   ];
 
   const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
