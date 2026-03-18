@@ -1,0 +1,12 @@
+{
+  "name": "tony-roku-bridge",
+  "version": "1.0.0",
+  "description": "Local bridge server for Tony to control Roku devices on your home network",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}

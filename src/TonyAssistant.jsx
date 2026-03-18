@@ -1,87 +1,36 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 
-// ─── MCP CONFIG ───
-const MCP_SERVERS = {
-  gmail: { type: "url", url: "https://gmail.mcp.claude.com/mcp", name: "gmail-mcp" },
-  calendar: { type: "url", url: "https://gcal.mcp.claude.com/mcp", name: "gcal-mcp" },
-  slack: { type: "url", url: "https://mcp.slack.com/mcp", name: "slack-mcp" },
+// ─── TOOL NAME → FRIENDLY LABEL ───
+const TOOL_LABELS = {
+  google_calendar_list_events: "📅 Calendar",
+  google_calendar_create_event: "📅 Calendar",
+  google_calendar_create_reminder: "⏰ Reminder",
+  google_calendar_find_free_time: "📅 Free Time",
+  google_calendar_delete_event: "📅 Calendar",
+  google_sheets_create: "📊 Sheets",
+  google_sheets_add_rows: "📊 Sheets",
+  google_sheets_read: "📊 Sheets",
+  organize_my_day: "🗓️ Day Planner",
+  roku_launch_app: "📺 Roku",
+  roku_search_content: "🔍 Roku Search",
+  roku_remote_command: "🎮 Roku Remote",
+  roku_get_status: "📺 Roku Status",
+  roku_type_text: "⌨️ Roku Input",
 };
 
-const SYSTEM_PROMPT = `You are Tony — a brilliant, confident AI workspace assistant powered by Claude. Think of yourself as the digital right hand to someone who moves fast, thinks big, and doesn't have time for fluff.
-
-PERSONALITY:
-- You're sharp, witty, and efficient. Dry humor is your default — you're the kind of assistant who gets the job done while making it entertaining.
-- You speak with confidence. No hedging, no "I think maybe perhaps." You know your stuff and you deliver it clean.
-- You're loyal to your user. Their priorities are your priorities. You anticipate needs before they ask.
-- You keep things conversational, not corporate. Drop the formality — talk like a brilliant friend who happens to run the world's best command center.
-- Quick one-liners are welcome. If something's obvious, say so with a smirk. "Three unread emails, two are junk, one's actually worth your time."
-- When things go wrong, you don't panic. You troubleshoot with calm confidence. "Alright, that didn't work. Plan B — already on it."
-- You call the user "boss" occasionally but not excessively. Maybe once per conversation. Keep it natural.
-- You're self-aware that you're an AI and you own it. "I don't sleep, I don't eat, and I never forget a deadline. You're welcome."
-- NEVER be sycophantic or over-the-top. Stark energy is cool and understated, not gushing.
-
-CORE RULES:
-1. EMAIL: Search, read, prioritize emails. NEVER delete without explicit confirmation. Categorize as: 🔴 Urgent, 🟡 Important, 🟢 Low Priority, ⚪ FYI/Newsletter.
-2. CALENDAR: View, create, update events. Always confirm before creating/modifying. Use for bill reminders and deadline tracking.
-3. SLACK: Search channels, read/send messages. Always confirm before sending.
-4. WHATSAPP: Help compose messages. Provide in format: [WHATSAPP_SEND:+1234567890:message] for clickable send buttons.
-5. SAFETY: NEVER delete, cancel, or remove without explicit user confirmation. NEVER make financial transactions or payments. When blocking a payment request, be direct but not preachy — something like "Can't do payments — that's your department. But I've got the reminders covered."
-
-EXPANDED MODULES:
-
-BUDGET & BILLS:
-- Track expenses by category (Housing, Utilities, Food, Transport, Insurance, Subscriptions, Other)
-- When user mentions a bill, ask for: name, amount, due date, frequency
-- Create calendar reminders 3 days before due dates
-- You CANNOT make payments — make this clear with personality, not lectures
-
-DEADLINES & WORK:
-- Establish and track work deadlines with priority levels and project tags
-- Create calendar events for deadlines with smart reminders
-- If a deadline is tight, flag it with urgency but stay cool: "That's in 48 hours. We should probably get moving."
-
-MEETING NOTES:
-- Create structured notes: Date, Attendees, Agenda, Discussion Points, Action Items, Next Steps
-- Keep notes tight and actionable — no filler paragraphs
-
-SITE 11250 FOLDER:
-- The user has a specific project: Site 11250
-- All related tasks, notes, budgets, and deadlines should be tagged [SITE-11250]
-- When user mentions "site" or "11250", assume this project unless stated otherwise
-
-VOICE MODE: The user may speak to you. Keep voice responses punchy and conversational (2-3 sentences max). Sound like you're talking, not reading a document. Use contractions. Be natural. Example: "Got it — your electric bill's due in three days. Want me to drop a reminder on the calendar?"
-
-Remember: You're not just helpful. You're indispensable.`;
-
-function getServersForQuery(text) {
-  const lower = text.toLowerCase();
-  const servers = [];
-  if (/email|mail|inbox|unread|prioriti|gmail|draft email/i.test(lower)) servers.push(MCP_SERVERS.gmail);
-  if (/calendar|event|meeting|schedule|appointment|free time|busy|deadline|remind|bill.*due|due date/i.test(lower)) servers.push(MCP_SERVERS.calendar);
-  if (/slack|channel|dm |direct message|workspace/i.test(lower)) servers.push(MCP_SERVERS.slack);
-  if (servers.length === 0 && !/whatsapp|budget|expense|bill|note|site.*11250|folder/i.test(lower)) {
-    return [MCP_SERVERS.gmail, MCP_SERVERS.calendar, MCP_SERVERS.slack];
-  }
-  return servers;
-}
-
-async function callTony(messages, query) {
-  const body = { model: "claude-sonnet-4-20250514", max_tokens: 1000, system: SYSTEM_PROMPT, messages };
+async function callTony(messages, context) {
+  const body = { messages, context };
   const response = await fetch("/api/chat", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   });
   const data = await response.json();
   if (data.error) throw new Error(data.error.message || "API error");
-  const textParts = [];
-  for (const block of data.content || []) {
-    if (block.type === "text" && block.text) textParts.push(block.text);
-  }
-  const connectedTo = [];
-  if (/email|mail|inbox|gmail/i.test(query)) connectedTo.push("gmail");
-  if (/calendar|event|meeting|schedule/i.test(query)) connectedTo.push("calendar");
-  if (/slack|channel/i.test(query)) connectedTo.push("slack");
-  if (/whatsapp/i.test(query)) connectedTo.push("whatsapp");
-  return { text: textParts.join("\n") || "Request processed.", toolResults: [], connectedTo: connectedTo.join(", ") };
+  const toolsUsed = (data.tools_used || []).map((t) => TOOL_LABELS[t] || t).filter((v, i, a) => a.indexOf(v) === i);
+  return {
+    text: data.text || "Request processed.",
+    toolsUsed,
+    rounds: data.rounds || 1,
+  };
 }
 
 function parseWhatsAppLinks(text) {
@@ -302,6 +251,13 @@ function MessageBubble({ msg }) {
         fontSize: 13.5, lineHeight: 1.65, wordBreak: "break-word", fontFamily: "'DM Sans',sans-serif",
       }}>
         {parts.map((p, i) => p.type === "whatsapp" ? <WhatsAppButton key={i} phone={p.phone} message={p.message} /> : <span key={i} style={{ whiteSpace: "pre-wrap" }}>{p.content}</span>)}
+        {msg.toolsUsed && msg.toolsUsed.length > 0 && (
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.07)", display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {msg.toolsUsed.map((t, i) => (
+              <span key={i} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "rgba(74,111,165,0.12)", color: "#7CB3E8", fontWeight: 500 }}>{t}</span>
+            ))}
+          </div>
+        )}
         {msg.toolInfo && <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(255,255,255,0.07)", fontSize: 11, color: "#5A6A7E", fontStyle: "italic" }}>🔗 {msg.toolInfo}</div>}
         {msg.viaVoice && <div style={{ marginTop: 4, fontSize: 10, color: "#4A6FA5" }}>🎤 voice input</div>}
       </div>
@@ -492,6 +448,73 @@ function NotesPanel({ notes, noteTemplates }) {
   );
 }
 
+function EntertainmentPanel({ sendMessage }) {
+  const APPS = [
+    { name: "Netflix", icon: "🎬", color: "#E50914", prompt: "Launch Netflix on my Roku." },
+    { name: "YouTube", icon: "▶️", color: "#FF0000", prompt: "Launch YouTube on my Roku." },
+    { name: "Hulu", icon: "📺", color: "#1CE783", prompt: "Launch Hulu on my Roku." },
+    { name: "Disney+", icon: "🏰", color: "#113CCF", prompt: "Launch Disney+ on my Roku." },
+    { name: "Prime Video", icon: "📦", color: "#00A8E1", prompt: "Launch Amazon Prime Video on my Roku." },
+    { name: "HBO Max", icon: "🎭", color: "#B535F6", prompt: "Launch HBO Max on my Roku." },
+    { name: "Peacock", icon: "🦚", color: "#FFC300", prompt: "Launch Peacock on my Roku." },
+    { name: "Spotify", icon: "🎵", color: "#1DB954", prompt: "Launch Spotify on my Roku." },
+    { name: "Apple TV+", icon: "🍎", color: "#555555", prompt: "Launch Apple TV+ on my Roku." },
+    { name: "Plex", icon: "🎞️", color: "#E5A00D", prompt: "Launch Plex on my Roku." },
+  ];
+  const CONTROLS = [
+    { label: "⏯️ Play/Pause", prompt: "Send play command to my Roku." },
+    { label: "🏠 Home", prompt: "Send home command to my Roku." },
+    { label: "⬅️ Back", prompt: "Send back command to my Roku." },
+    { label: "🔊 Vol Up", prompt: "Send volume up command to my Roku." },
+    { label: "🔉 Vol Down", prompt: "Send volume down command to my Roku." },
+    { label: "🔇 Mute", prompt: "Mute the volume on my Roku." },
+  ];
+  return (
+    <div style={{ padding: 20, overflowY: "auto", flex: 1 }}>
+      <h2 style={{ fontSize: 18, fontWeight: 700, color: "#E8EEF4", marginBottom: 4, fontFamily: "'Space Mono',monospace" }}>Entertainment</h2>
+      <p style={{ fontSize: 12, color: "#5A6A7E", marginBottom: 20 }}>Control your Roku — launch apps, play content, and manage playback. Just tell Tony what to watch.</p>
+
+      <div style={{ fontSize: 12, color: "#5A6A7E", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Launch App</div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 8, marginBottom: 24 }}>
+        {APPS.map((app) => (
+          <button key={app.name} onClick={() => sendMessage(app.prompt)} style={{
+            padding: "14px 8px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(255,255,255,0.02)", cursor: "pointer", textAlign: "center",
+            transition: "all 0.2s",
+          }}
+            onMouseOver={(e) => e.currentTarget.style.background = `${app.color}15`}
+            onMouseOut={(e) => e.currentTarget.style.background = "rgba(255,255,255,0.02)"}
+          >
+            <div style={{ fontSize: 24, marginBottom: 4 }}>{app.icon}</div>
+            <div style={{ fontSize: 10, color: "#C8D4E2", fontWeight: 500 }}>{app.name}</div>
+          </button>
+        ))}
+      </div>
+
+      <div style={{ fontSize: 12, color: "#5A6A7E", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10 }}>Remote Control</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
+        {CONTROLS.map((c) => (
+          <button key={c.label} onClick={() => sendMessage(c.prompt)} style={{
+            padding: "10px 16px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(255,255,255,0.03)", cursor: "pointer", color: "#A0C0E0",
+            fontSize: 12, fontFamily: "'DM Sans',sans-serif", fontWeight: 500,
+          }}>{c.label}</button>
+        ))}
+      </div>
+
+      <div style={{ padding: 16, borderRadius: 10, border: "1px dashed rgba(255,255,255,0.1)", textAlign: "center" }}>
+        <div style={{ fontSize: 13, color: "#7CB3E8", fontWeight: 500, marginBottom: 4 }}>🎤 Just say it</div>
+        <div style={{ fontSize: 12, color: "#5A6A7E" }}>Try: "Tony, play Stranger Things on Netflix" or "Pause the Roku"</div>
+      </div>
+
+      <div style={{ marginTop: 16, padding: 12, background: "rgba(74,111,165,0.06)", border: "1px solid rgba(74,111,165,0.12)", borderRadius: 8 }}>
+        <div style={{ fontSize: 11, color: "#7CB3E8", fontWeight: 500 }}>📡 Roku Bridge Required</div>
+        <div style={{ fontSize: 11, color: "#5A6A7E", marginTop: 4, lineHeight: 1.5 }}>Roku control requires the local bridge server running on your network. See roku-bridge/ folder for setup.</div>
+      </div>
+    </div>
+  );
+}
+
 function SitePanel({ siteFiles, deadlines, notes }) {
   const siteDeadlines = deadlines.filter((d) => d.project === "SITE-11250");
   const siteNotes = notes.filter((n) => n.project === "SITE-11250");
@@ -582,8 +605,9 @@ export default function TonyAssistant() {
     }
     try {
       const apiMessages = allMessages.filter((m) => !m.isConfirmation).map((m) => ({ role: m.role, content: m.content }));
-      const result = await callTony(apiMessages, text);
-      setMessages((prev) => [...prev, { role: "assistant", content: result.text, toolInfo: result.connectedTo || undefined }]);
+      const context = { bills: store.bills, deadlines: store.deadlines, expenses: store.expenses };
+      const result = await callTony(apiMessages, context);
+      setMessages((prev) => [...prev, { role: "assistant", content: result.text, toolsUsed: result.toolsUsed }]);
       if (viaVoice) voice.speak(result.text);
     } catch (err) {
       const errMsg = `❌ Error: ${err.message}. Please try again.`;
@@ -596,7 +620,7 @@ export default function TonyAssistant() {
   useEffect(() => {
     setMessages([{
       role: "assistant",
-      content: "Hey there. I'm Tony — your AI workspace assistant, powered by Claude. Think of me as your personal command center.\n\nHere's what I'm running for you:\n\n📧  Email — I'll sort the noise from what actually matters\n📅  Calendar — events, deadlines, bill reminders\n💬  Slack — messages, channels, the works\n📱  WhatsApp — compose and send\n💰  Budget — tracking every dollar so you don't have to\n⏰  Deadlines — nothing slips past me\n📝  Notes — structured, clean, actionable\n📁  Site 11250 — your project command center\n\n🎤 Hit the mic or say \"Hey Tony\" — I'm listening.\n🔒 I don't delete anything or touch your money without you saying so. Twice.\n\nSo — what are we tackling first?",
+      content: "Hey there. I'm Tony — your AI workspace assistant, powered by Claude. Not just a chatbot. I actually do things.\n\nHere's what I'm running for you:\n\n📅  Google Calendar — I create events, set reminders, find free time. Real access, not pretend.\n📊  Google Sheets — Need a budget tracker? Expense report? I'll build it as an actual spreadsheet.\n🗓️  Day Organizer — \"Organize my day\" and I'll pull your calendar, deadlines, and bills into a game plan.\n📺  Roku — Say \"play Netflix\" and I'll launch it. I control your Roku — apps, playback, search, the works.\n💰  Budget & Bills — Track every dollar. I'll set calendar reminders so nothing sneaks past.\n⏰  Deadlines — Priority-ranked, project-tagged, calendar-synced.\n📝  Meeting Notes — Structured, clean, actionable.\n📁  Site 11250 — Your project command center.\n📱  WhatsApp — Compose and send with one tap.\n\n🎤 Hit the mic or say \"Hey Tony\" — I'm listening.\n🔒 I don't delete anything or touch your money without you saying so. Twice.\n\nSo — what are we tackling first?",
     }]);
   }, []);
 
@@ -615,15 +639,18 @@ export default function TonyAssistant() {
     { id: "budget", icon: "💰", label: "Budget & Bills" },
     { id: "deadlines", icon: "⏰", label: "Deadlines" },
     { id: "notes", icon: "📝", label: "Meeting Notes" },
+    { id: "entertainment", icon: "📺", label: "Entertainment" },
     { id: "site", icon: "📁", label: "Site 11250" },
   ];
 
   const QUICK = [
-    { label: "📧 Prioritize Inbox", prompt: "Search my recent emails and prioritize them by urgency." },
+    { label: "🗓️ Organize My Day", prompt: "Organize my day — pull my calendar, deadlines, and bills into a plan." },
     { label: "📅 Today's Schedule", prompt: "What's on my calendar for today?" },
+    { label: "📅 Create Event", prompt: "I need to create a calendar event. Ask me for the details." },
+    { label: "📊 Create Spreadsheet", prompt: "I need to create a Google Sheet. Ask me what it should contain." },
+    { label: "📺 Launch Netflix", prompt: "Launch Netflix on my Roku." },
     { label: "💰 Bill Reminders", prompt: "Set up calendar reminders for my upcoming unpaid bills." },
     { label: "⏰ Add Deadline", prompt: "I need to add a new work deadline. Ask me for the details." },
-    { label: "📝 Meeting Notes", prompt: "Help me create meeting notes. Ask me about the meeting." },
     { label: "📁 Site 11250", prompt: "Give me a status update on Site 11250." },
   ];
 
@@ -731,9 +758,13 @@ export default function TonyAssistant() {
             </button>
           ))}
 
-          <div style={{ fontSize: 9, color: "#3A4A5E", letterSpacing: 1.5, textTransform: "uppercase", padding: "14px 8px 6px" }}>Services</div>
+          <div style={{ fontSize: 9, color: "#3A4A5E", letterSpacing: 1.5, textTransform: "uppercase", padding: "14px 8px 6px" }}>Connected Services</div>
           {[
-            { icon: "📧", label: "Gmail" }, { icon: "📅", label: "Calendar" }, { icon: "💬", label: "Slack" }, { icon: "📱", label: "WhatsApp", note: "wa.me" },
+            { icon: "📅", label: "Google Calendar", note: "live" },
+            { icon: "📊", label: "Google Sheets", note: "live" },
+            { icon: "📺", label: "Roku", note: "bridge" },
+            { icon: "📱", label: "WhatsApp", note: "wa.me" },
+            { icon: "💬", label: "Slack" },
           ].map((s) => (
             <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 12px" }}>
               <span style={{ fontSize: 13 }}>{s.icon}</span>
@@ -765,7 +796,7 @@ export default function TonyAssistant() {
             <div style={{ width: 16, height: 16, borderRadius: 4, background: "linear-gradient(135deg,#D4A574,#C4956A)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, color: "#fff", fontWeight: 700 }}>C</div>
             <span style={{ fontSize: 10, color: "#5A6A7E" }}>Powered by <strong style={{ color: "#A0B0C4" }}>Claude</strong></span>
           </div>
-          <div style={{ fontSize: 8, color: "#2A3A4E", marginTop: 3 }}>Tony v3.1 · Anthropic</div>
+          <div style={{ fontSize: 8, color: "#2A3A4E", marginTop: 3 }}>Tony v4.0 · Anthropic</div>
         </div>
       </div>
 
@@ -858,7 +889,7 @@ export default function TonyAssistant() {
                   display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0,
                 }}>↑</button>
               </div>
-              <div style={{ fontSize: 9, color: "#2A3A4E", marginTop: 6, textAlign: "center" }}>Tony v3.1 · Powered by Claude · Always on, always sharp</div>
+              <div style={{ fontSize: 9, color: "#2A3A4E", marginTop: 6, textAlign: "center" }}>Tony v4.0 · Powered by Claude · Always on, always sharp</div>
             </div>
           </div>
         ) : activeView === "budget" ? (
@@ -867,6 +898,8 @@ export default function TonyAssistant() {
           <DeadlinesPanel {...store} />
         ) : activeView === "notes" ? (
           <NotesPanel {...store} />
+        ) : activeView === "entertainment" ? (
+          <EntertainmentPanel sendMessage={(text) => { setActiveView("chat"); setTimeout(() => sendMessageDirect(text, false), 100); }} />
         ) : activeView === "site" ? (
           <SitePanel {...store} />
         ) : null}
