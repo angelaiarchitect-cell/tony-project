@@ -77,12 +77,19 @@ async function callTony(messages, context) {
   };
 }
 
-function parseWhatsAppLinks(text) {
-  const regex = /\[WHATSAPP_SEND:\+?(\d+):(.+?)\]/g;
+function parseSpecialLinks(text) {
+  // Matches [WHATSAPP_SEND:phone:msg] and [OPEN_APP:url:label]
+  const regex = /\[WHATSAPP_SEND:\+?(\d+):(.+?)\]|\[OPEN_APP:(https?:\/\/[^\]:]+):(.+?)\]/g;
   const parts = []; let lastIndex = 0, match;
   while ((match = regex.exec(text)) !== null) {
     if (match.index > lastIndex) parts.push({ type: "text", content: text.slice(lastIndex, match.index) });
-    parts.push({ type: "whatsapp", phone: match[1], message: match[2] });
+    if (match[1]) {
+      // WhatsApp
+      parts.push({ type: "whatsapp", phone: match[1], message: match[2] });
+    } else if (match[3]) {
+      // Open App
+      parts.push({ type: "open_app", url: match[3], label: match[4] });
+    }
     lastIndex = match.index + match[0].length;
   }
   if (lastIndex < text.length) parts.push({ type: "text", content: text.slice(lastIndex) });
@@ -254,10 +261,42 @@ function WhatsAppButton({ phone, message }) {
   );
 }
 
+function OpenAppButton({ url, label }) {
+  // Determine icon based on URL
+  const icon = url.includes("docs.google.com/spreadsheets") ? "📊" :
+    url.includes("docs.google.com/document") ? "📝" :
+    url.includes("docs.google.com/presentation") ? "📽️" :
+    url.includes("drive.google.com") ? "📁" :
+    url.includes("mail.google.com") ? "📧" :
+    url.includes("calendar.google.com") ? "📅" :
+    "🔗";
+  return (
+    <a href={url} target="_blank" rel="noopener noreferrer" style={{
+      display: "flex", alignItems: "center", gap: 10, padding: "12px 16px",
+      background: `linear-gradient(135deg, ${T.redDim}, rgba(229,57,53,0.06))`,
+      border: `1px solid ${T.red}44`,
+      borderRadius: 12, color: T.white, fontSize: 13, fontWeight: 600,
+      textDecoration: "none", marginTop: 8, transition: "all 0.2s",
+      fontFamily: T.font,
+    }}>
+      <span style={{ fontSize: 22 }}>{icon}</span>
+      <div style={{ flex: 1 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: T.white }}>{label}</div>
+        <div style={{ fontSize: 10, color: T.whiteMuted, marginTop: 2, opacity: 0.7 }}>Tap to open</div>
+      </div>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={T.red} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+        <polyline points="15 3 21 3 21 9" />
+        <line x1="10" y1="14" x2="21" y2="3" />
+      </svg>
+    </a>
+  );
+}
+
 function MessageBubble({ msg, isMobile }) {
   const isUser = msg.role === "user";
   const displayText = msg.displayText || (typeof msg.content === "string" ? msg.content : "");
-  const parts = isUser ? [{ type: "text", content: displayText }] : parseWhatsAppLinks(typeof msg.content === "string" ? msg.content : "");
+  const parts = isUser ? [{ type: "text", content: displayText }] : parseSpecialLinks(typeof msg.content === "string" ? msg.content : "");
   return (
     <div style={{
       display: "flex", justifyContent: isUser ? "flex-end" : "flex-start",
@@ -301,6 +340,8 @@ function MessageBubble({ msg, isMobile }) {
         {parts.map((part, i) =>
           part.type === "whatsapp" ? (
             <WhatsAppButton key={i} phone={part.phone} message={part.message} />
+          ) : part.type === "open_app" ? (
+            <OpenAppButton key={i} url={part.url} label={part.label} />
           ) : (
             <span key={i} style={{ whiteSpace: "pre-wrap" }}>{part.content}</span>
           )
