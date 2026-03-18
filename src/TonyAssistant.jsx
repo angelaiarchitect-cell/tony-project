@@ -66,22 +66,22 @@ function getServersForQuery(text) {
 }
 
 async function callTony(messages, query) {
-  const servers = getServersForQuery(query);
   const body = { model: "claude-sonnet-4-20250514", max_tokens: 1000, system: SYSTEM_PROMPT, messages };
-  if (servers.length > 0) body.mcp_servers = servers;
   const response = await fetch("/api/chat", {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   });
   const data = await response.json();
   if (data.error) throw new Error(data.error.message || "API error");
-  const textParts = [], toolResults = [];
+  const textParts = [];
   for (const block of data.content || []) {
     if (block.type === "text" && block.text) textParts.push(block.text);
-    if (block.type === "mcp_tool_result" && block.content?.[0]?.text) toolResults.push(block.content[0].text);
   }
-  const connectedTo = servers.map((s) => s.name.replace("-mcp", ""));
+  const connectedTo = [];
+  if (/email|mail|inbox|gmail/i.test(query)) connectedTo.push("gmail");
+  if (/calendar|event|meeting|schedule/i.test(query)) connectedTo.push("calendar");
+  if (/slack|channel/i.test(query)) connectedTo.push("slack");
   if (/whatsapp/i.test(query)) connectedTo.push("whatsapp");
-  return { text: textParts.join("\n") || "Request processed.", toolResults, connectedTo: connectedTo.join(", ") };
+  return { text: textParts.join("\n") || "Request processed.", toolResults: [], connectedTo: connectedTo.join(", ") };
 }
 
 function parseWhatsAppLinks(text) {
