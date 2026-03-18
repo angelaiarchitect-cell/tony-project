@@ -43,6 +43,20 @@ const T = {
   mono: "'JetBrains Mono','SF Mono','Fira Code',monospace",
 };
 
+// ─── MOBILE DETECTION ───
+function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth < breakpoint
+  );
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+    const handler = (e) => setIsMobile(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, [breakpoint]);
+  return isMobile;
+}
+
 async function callTony(messages, context) {
   const body = { messages, context };
   const response = await fetch("/api/chat", {
@@ -187,26 +201,26 @@ function WhatsAppButton({ phone, message }) {
   );
 }
 
-function MessageBubble({ msg }) {
+function MessageBubble({ msg, isMobile }) {
   const isUser = msg.role === "user";
   const parts = isUser ? [{ type: "text", content: msg.content }] : parseWhatsAppLinks(msg.content);
   return (
     <div style={{
       display: "flex", justifyContent: isUser ? "flex-end" : "flex-start",
-      alignItems: "flex-start", gap: 10, marginBottom: 16,
+      alignItems: "flex-start", gap: isMobile ? 8 : 10, marginBottom: isMobile ? 12 : 16,
       animation: "fadeSlideIn 0.3s ease-out",
     }}>
       {!isUser && (
         <div style={{
-          width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+          width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: isMobile ? 8 : 10, flexShrink: 0,
           background: `linear-gradient(135deg, ${T.red}, #B71C1C)`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 13, color: "#fff", fontWeight: 700,
+          fontSize: isMobile ? 11 : 13, color: "#fff", fontWeight: 700,
           boxShadow: `0 4px 20px ${T.redDim}`,
         }}>T</div>
       )}
       <div style={{
-        maxWidth: "75%",
+        maxWidth: isMobile ? "88%" : "75%",
         padding: "12px 16px",
         borderRadius: isUser ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
         background: isUser ? T.red : T.bgCard,
@@ -250,10 +264,10 @@ function MessageBubble({ msg }) {
       </div>
       {isUser && (
         <div style={{
-          width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+          width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: isMobile ? 8 : 10, flexShrink: 0,
           background: T.grayDarker, border: `1px solid ${T.border}`,
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 13, color: T.whiteMuted, fontWeight: 600,
+          fontSize: isMobile ? 11 : 13, color: T.whiteMuted, fontWeight: 600,
         }}>A</div>
       )}
     </div>
@@ -262,22 +276,22 @@ function MessageBubble({ msg }) {
 
 // ─── PANELS ───
 
-function BudgetPanel({ bills, expenses, templates }) {
+function BudgetPanel({ bills, expenses, templates, isMobile }) {
   const totalBills = bills.reduce((s, b) => s + b.amount, 0);
   const paid = bills.filter((b) => b.paid).reduce((s, b) => s + b.amount, 0);
   const totalExpenses = expenses.reduce((s, e) => s + e.amount, 0);
   const catIcons = { housing: "🏠", auto: "🚗", utilities: "⚡", health: "💪", food: "🍽️", shopping: "🛍️" };
 
   return (
-    <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
+    <div style={{ padding: isMobile ? 16 : 24, overflowY: "auto", flex: 1 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <div>
-          <h2 style={{ fontSize: 20, fontWeight: 700, color: T.white, fontFamily: T.font, margin: 0 }}>Budget & Bills</h2>
+          <h2 style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: T.white, fontFamily: T.font, margin: 0 }}>Budget & Bills</h2>
           <p style={{ fontSize: 12, color: T.gray, marginTop: 2 }}>Track spending, stay ahead of due dates.</p>
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: isMobile ? 8 : 12, marginBottom: 28 }}>
         {[
           { label: "Monthly Bills", value: `$${totalBills.toFixed(0)}`, sub: `${bills.filter(b=>b.paid).length}/${bills.length} paid`, color: T.red },
           { label: "Paid", value: `$${paid.toFixed(0)}`, sub: `${((paid/totalBills)*100).toFixed(0)}% complete`, color: T.green },
@@ -344,16 +358,16 @@ function BudgetPanel({ bills, expenses, templates }) {
   );
 }
 
-function DeadlinesPanel({ deadlines }) {
+function DeadlinesPanel({ deadlines, isMobile }) {
   const priorityColor = { high: T.red, medium: "#FFC107", low: T.green };
   const active = deadlines.filter((d) => !d.done);
   const done = deadlines.filter((d) => d.done);
   return (
-    <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: T.white, fontFamily: T.font, marginBottom: 4 }}>Deadlines</h2>
+    <div style={{ padding: isMobile ? 16 : 24, overflowY: "auto", flex: 1 }}>
+      <h2 style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: T.white, fontFamily: T.font, marginBottom: 4 }}>Deadlines</h2>
       <p style={{ fontSize: 12, color: T.gray, marginBottom: 20 }}>Priority-ranked, project-tagged, calendar-synced.</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: isMobile ? 8 : 12, marginBottom: 28 }}>
         {[
           { label: "Active", value: active.length, color: T.red },
           { label: "High Priority", value: active.filter(d => d.priority === "high").length, color: "#FFC107" },
@@ -409,9 +423,9 @@ function DeadlinesPanel({ deadlines }) {
   );
 }
 
-function NotesPanel({ notes, templates }) {
+function NotesPanel({ notes, templates, isMobile }) {
   return (
-    <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
+    <div style={{ padding: isMobile ? 16 : 24, overflowY: "auto", flex: 1 }}>
       <h2 style={{ fontSize: 20, fontWeight: 700, color: T.white, fontFamily: T.font, marginBottom: 4 }}>Meeting Notes</h2>
       <p style={{ fontSize: 12, color: T.gray, marginBottom: 20 }}>Structured, clean, actionable.</p>
 
@@ -441,7 +455,7 @@ function NotesPanel({ notes, templates }) {
       ))}
 
       <div style={{ fontSize: 11, color: T.gray, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 10, marginTop: 12 }}>Templates</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 8 }}>
         {templates.map((t) => (
           <button key={t.id} onClick={() => window.__tonySendMessage?.(t.prompt)} style={{
             background: T.bgCard, border: `1px solid ${T.border}`, color: T.whiteMuted,
@@ -454,7 +468,7 @@ function NotesPanel({ notes, templates }) {
   );
 }
 
-function EntertainmentPanel({ sendMessage }) {
+function EntertainmentPanel({ sendMessage, isMobile }) {
   const categories = [
     { label: "📺 Streaming", items: [
       { name: "Netflix", cmd: "Launch Netflix on my Roku." },
@@ -475,8 +489,8 @@ function EntertainmentPanel({ sendMessage }) {
   ];
 
   return (
-    <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, color: T.white, fontFamily: T.font, marginBottom: 4 }}>Entertainment</h2>
+    <div style={{ padding: isMobile ? 16 : 24, overflowY: "auto", flex: 1 }}>
+      <h2 style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: T.white, fontFamily: T.font, marginBottom: 4 }}>Entertainment</h2>
       <p style={{ fontSize: 12, color: T.gray, marginBottom: 24 }}>Control your Roku — launch apps, navigate, play & pause.</p>
 
       {categories.map((cat) => (
@@ -512,20 +526,20 @@ function EntertainmentPanel({ sendMessage }) {
   );
 }
 
-function SitePanel({ siteFiles, deadlines, notes }) {
+function SitePanel({ siteFiles, deadlines, notes, isMobile }) {
   const siteDeadlines = deadlines.filter((d) => d.project === "SITE-11250");
   const siteNotes = notes.filter((n) => n.project === "SITE-11250");
   const tagColors = { planning: T.red, budget: "#FFC107", meetings: "#AB47BC", compliance: T.redLight, legal: T.green };
   const fileIcons = { doc: "📄", xlsx: "📊", note: "📝", pdf: "📋" };
   return (
-    <div style={{ padding: 24, overflowY: "auto", flex: 1 }}>
+    <div style={{ padding: isMobile ? 16 : 24, overflowY: "auto", flex: 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: T.white, fontFamily: T.font }}>Site 11250</h2>
+        <h2 style={{ fontSize: isMobile ? 18 : 20, fontWeight: 700, color: T.white, fontFamily: T.font }}>Site 11250</h2>
         <span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 20, background: T.redDim, color: T.redLight, fontWeight: 600 }}>PROJECT</span>
       </div>
       <p style={{ fontSize: 12, color: T.gray, marginBottom: 24 }}>All files, deadlines, and notes for Site 11250.</p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr", gap: isMobile ? 8 : 12, marginBottom: 28 }}>
         {[
           { label: "Files", value: siteFiles.length, icon: "📁" },
           { label: "Active Deadlines", value: siteDeadlines.filter((d) => !d.done).length, icon: "⏰" },
@@ -584,8 +598,10 @@ export default function TonyAssistant() {
   const [activeView, setActiveView] = useState("chat");
   const [showSetup, setShowSetup] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const chatEndRef = useRef(null);
   const inputRef = useRef(null);
+  const isMobile = useIsMobile();
   const store = useStore();
 
   const voice = useVoice(
@@ -633,6 +649,12 @@ export default function TonyAssistant() {
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const view = params.get("view");
+    if (view && ["chat", "budget", "deadlines", "notes", "entertainment", "site"].includes(view)) setActiveView(view);
+  }, []);
+
+  useEffect(() => {
     setMessages([{
       role: "assistant",
       content: "Hey there. I'm Tony — your AI workspace assistant, powered by Claude. Not just a chatbot. I actually do things.\n\nHere's what I'm running for you:\n\n📅  Google Calendar — I create events, set reminders, find free time. Real access, not pretend.\n📊  Google Sheets — Need a budget tracker? Expense report? I'll build it as an actual spreadsheet.\n🗓️  Day Organizer — \"Organize my day\" and I'll pull your calendar, deadlines, and bills into a game plan.\n📺  Roku — Say \"play Netflix\" and I'll launch it. I control your Roku — apps, playback, search, the works.\n💰  Budget & Bills — Track every dollar. I'll set calendar reminders so nothing sneaks past.\n⏰  Deadlines — Priority-ranked, project-tagged, calendar-synced.\n📝  Meeting Notes — Structured, clean, actionable.\n📁  Site 11250 — Your project command center.\n📱  WhatsApp — Compose and send with one tap.\n\n🎤 Hit the mic or say \"Hey Tony\" — I'm listening.\n🔒 I don't delete anything or touch your money without you saying so. Twice.\n\nSo — what are we tackling first?",
@@ -671,6 +693,7 @@ export default function TonyAssistant() {
   return (
     <div style={{
       width: "100%", height: "100vh", display: "flex",
+      flexDirection: isMobile ? "column" : "row",
       background: T.bg, fontFamily: T.font, color: T.whiteMuted, overflow: "hidden",
     }}>
       <style>{`
@@ -681,6 +704,7 @@ export default function TonyAssistant() {
         @keyframes voicePulse{0%{transform:scale(1);opacity:.5}100%{transform:scale(1.6);opacity:0}}
         @keyframes micGlow{0%,100%{box-shadow:0 0 8px rgba(229,57,53,0.3)}50%{box-shadow:0 0 24px rgba(229,57,53,0.6)}}
         @keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+        @keyframes slideInLeft{from{transform:translateX(-100%)}to{transform:translateX(0)}}
         *{box-sizing:border-box;margin:0;padding:0}
         ::-webkit-scrollbar{width:4px}
         ::-webkit-scrollbar-track{background:transparent}
@@ -750,8 +774,91 @@ export default function TonyAssistant() {
         </div>
       )}
 
-      {/* Sidebar */}
-      <div style={{
+      {/* Mobile Slide-over Menu */}
+      {isMobile && mobileMenuOpen && (
+        <>
+          <div onClick={() => setMobileMenuOpen(false)} style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+            zIndex: 800, backdropFilter: "blur(4px)",
+          }} />
+          <div style={{
+            position: "fixed", top: 0, left: 0, bottom: 0, width: 280,
+            background: T.bgSidebar, borderRight: `1px solid ${T.border}`,
+            zIndex: 801, overflowY: "auto",
+            animation: "slideInLeft 0.2s ease-out",
+          }}>
+            {/* Logo */}
+            <div style={{ padding: "18px 16px", borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                  background: `linear-gradient(135deg, ${T.red}, #B71C1C)`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 16, fontWeight: 800, color: "#fff",
+                  boxShadow: `0 4px 20px ${T.redDim}`,
+                }}>T</div>
+                <div>
+                  <div style={{ fontFamily: T.mono, fontWeight: 700, fontSize: 15, color: T.white, letterSpacing: 3 }}>TONY</div>
+                  <div style={{ fontSize: 9, color: T.gray, letterSpacing: 1.5, textTransform: "uppercase" }}>v4.0 Assistant</div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ padding: "16px 12px" }}>
+              <div style={{ fontSize: 9, color: T.grayDark, letterSpacing: 2, textTransform: "uppercase", padding: "4px 10px", marginBottom: 8 }}>Connected</div>
+              {[
+                { icon: "📅", label: "Calendar", status: "live" },
+                { icon: "📊", label: "Sheets", status: "live" },
+                { icon: "📺", label: "Roku", status: "bridge" },
+                { icon: "📱", label: "WhatsApp", status: "wa.me" },
+                { icon: "💬", label: "Slack", status: null },
+              ].map((s) => (
+                <div key={s.label} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px" }}>
+                  <span style={{ fontSize: 14 }}>{s.icon}</span>
+                  <span style={{ fontSize: 12, color: T.whiteMuted, flex: 1 }}>{s.label}</span>
+                  <div style={{
+                    width: 6, height: 6, borderRadius: "50%",
+                    background: T.green, boxShadow: `0 0 8px ${T.greenDim}`,
+                  }} />
+                </div>
+              ))}
+
+              <div style={{
+                margin: "20px 0", padding: 12, borderRadius: 10,
+                background: "rgba(255,193,7,0.04)", border: "1px solid rgba(255,193,7,0.08)",
+              }}>
+                <div style={{ fontSize: 11, color: "#FFC107", fontWeight: 600 }}>🔒 Safety Mode</div>
+                <div style={{ fontSize: 11, color: T.gray, marginTop: 4, lineHeight: 1.5 }}>No deletions or payments without confirmation.</div>
+              </div>
+
+              <button onClick={() => { setMobileMenuOpen(false); setShowSetup(true); }} style={{
+                display: "flex", alignItems: "center", gap: 8, width: "100%",
+                padding: "12px 14px", borderRadius: 10, border: `1px dashed ${T.border}`,
+                background: "transparent", cursor: "pointer", fontFamily: T.font,
+              }}>
+                <span style={{ fontSize: 14 }}>🚀</span>
+                <span style={{ fontSize: 12, color: T.whiteMuted, fontWeight: 500 }}>Setup Mobile</span>
+              </button>
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: "12px 16px", borderTop: `1px solid ${T.border}`, position: "absolute", bottom: 0, left: 0, right: 0, background: T.bgSidebar }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{
+                  width: 16, height: 16, borderRadius: 4,
+                  background: "linear-gradient(135deg,#D4A574,#C4956A)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 8, color: "#fff", fontWeight: 700,
+                }}>C</div>
+                <span style={{ fontSize: 10, color: T.gray }}>Powered by <strong style={{ color: T.whiteMuted }}>Claude</strong></span>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Sidebar (desktop only) */}
+      {!isMobile && <div style={{
         width: sidebarOpen ? 200 : 56, borderRight: `1px solid ${T.border}`,
         display: "flex", flexDirection: "column", background: T.bgSidebar, flexShrink: 0,
         transition: "width 0.25s ease", overflow: "hidden",
@@ -859,17 +966,23 @@ export default function TonyAssistant() {
             <div style={{ textAlign: "center", fontSize: 10, color: T.gray }}>C</div>
           )}
         </div>
-      </div>
+      </div>}
 
       {/* Main Area */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
         {/* Header */}
         <div style={{
-          padding: "10px 24px", borderBottom: `1px solid ${T.border}`,
+          padding: isMobile ? "10px 16px" : "10px 24px", borderBottom: `1px solid ${T.border}`,
           display: "flex", alignItems: "center", justifyContent: "space-between",
           background: T.bgSidebar,
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {isMobile && (
+              <button onClick={() => setMobileMenuOpen(true)} style={{
+                background: "transparent", border: "none", color: T.white,
+                fontSize: 20, cursor: "pointer", padding: "4px 6px", lineHeight: 1,
+              }}>☰</button>
+            )}
             <div>
               <div style={{ fontSize: 15, fontWeight: 600, color: T.white }}>
                 {NAV.find((n) => n.id === activeView)?.icon} {NAV.find((n) => n.id === activeView)?.label}
@@ -905,8 +1018,8 @@ export default function TonyAssistant() {
         {activeView === "chat" ? (
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
             {/* Messages */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
-              {messages.map((msg, i) => <MessageBubble key={i} msg={msg} />)}
+            <div style={{ flex: 1, overflowY: "auto", padding: isMobile ? "12px 12px" : "20px 24px" }}>
+              {messages.map((msg, i) => <MessageBubble key={i} msg={msg} isMobile={isMobile} />)}
               {loading && (
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
                   <div style={{
@@ -926,8 +1039,8 @@ export default function TonyAssistant() {
 
             {/* Quick Actions */}
             {messages.length <= 2 && (
-              <div style={{ padding: "0 24px 12px", display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {QUICK.map((q) => (
+              <div style={{ padding: isMobile ? "0 12px 8px" : "0 24px 12px", display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {(isMobile ? QUICK.slice(0, 4) : QUICK).map((q) => (
                   <button key={q.label} onClick={() => sendMessage(q.prompt)} disabled={loading} style={{
                     background: T.bgCard, border: `1px solid ${T.border}`, color: T.whiteMuted,
                     padding: "8px 14px", borderRadius: 20, cursor: loading ? "not-allowed" : "pointer",
@@ -939,7 +1052,7 @@ export default function TonyAssistant() {
             )}
 
             {/* Input */}
-            <div style={{ padding: "12px 24px 16px", background: T.bgSidebar, borderTop: `1px solid ${T.border}` }}>
+            <div style={{ padding: isMobile ? "8px 12px 12px" : "12px 24px 16px", background: T.bgSidebar, borderTop: `1px solid ${T.border}` }}>
               <div style={{
                 display: "flex", gap: 8, alignItems: "flex-end",
                 background: T.bgInput, borderRadius: 14,
@@ -993,23 +1106,58 @@ export default function TonyAssistant() {
                   </svg>
                 </button>
               </div>
-              <div style={{ fontSize: 9, color: T.grayDark, marginTop: 8, textAlign: "center", letterSpacing: 0.5 }}>
+              {!isMobile && <div style={{ fontSize: 9, color: T.grayDark, marginTop: 8, textAlign: "center", letterSpacing: 0.5 }}>
                 Tony v4.0 · Powered by Claude · Always on, always sharp
-              </div>
+              </div>}
             </div>
           </div>
         ) : activeView === "budget" ? (
-          <BudgetPanel {...store} />
+          <BudgetPanel {...store} isMobile={isMobile} />
         ) : activeView === "deadlines" ? (
-          <DeadlinesPanel {...store} />
+          <DeadlinesPanel {...store} isMobile={isMobile} />
         ) : activeView === "notes" ? (
-          <NotesPanel {...store} />
+          <NotesPanel {...store} isMobile={isMobile} />
         ) : activeView === "entertainment" ? (
-          <EntertainmentPanel sendMessage={(text) => { setActiveView("chat"); setTimeout(() => sendMessageDirect(text, false), 100); }} />
+          <EntertainmentPanel isMobile={isMobile} sendMessage={(text) => { setActiveView("chat"); setTimeout(() => sendMessageDirect(text, false), 100); }} />
         ) : activeView === "site" ? (
-          <SitePanel {...store} />
+          <SitePanel {...store} isMobile={isMobile} />
         ) : null}
       </div>
+
+      {/* Mobile Bottom Tab Bar */}
+      {isMobile && (
+        <div style={{
+          display: "flex", justifyContent: "space-around", alignItems: "center",
+          borderTop: `1px solid ${T.border}`, background: T.bgSidebar,
+          padding: "6px 0 max(8px, env(safe-area-inset-bottom))",
+          flexShrink: 0,
+        }}>
+          {NAV.map((n) => (
+            <button key={n.id} onClick={() => setActiveView(n.id)} style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+              background: "transparent", border: "none", cursor: "pointer",
+              padding: "6px 4px", borderRadius: 8, minWidth: 0,
+              color: activeView === n.id ? T.red : T.gray,
+              position: "relative",
+            }}>
+              <span style={{ fontSize: 18 }}>{n.icon}</span>
+              <span style={{
+                fontSize: 9, fontWeight: activeView === n.id ? 600 : 400,
+                whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                maxWidth: 56,
+              }}>
+                {n.id === "site" ? "Site" : n.label}
+              </span>
+              {activeView === n.id && (
+                <div style={{
+                  position: "absolute", top: 0, left: "50%", transform: "translateX(-50%)",
+                  width: 16, height: 2, borderRadius: 1, background: T.red,
+                }} />
+              )}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

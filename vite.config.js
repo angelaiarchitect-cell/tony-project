@@ -41,6 +41,22 @@ export default defineConfig({
             sizes: 'any',
             type: 'image/svg+xml'
           }
+        ],
+        shortcuts: [
+          {
+            name: 'Quick Chat',
+            short_name: 'Chat',
+            description: 'Send Tony a quick message',
+            url: '/?view=chat',
+            icons: [{ src: 'tony-icon-192.png', sizes: '192x192' }]
+          },
+          {
+            name: 'My Schedule',
+            short_name: 'Schedule',
+            description: 'Check your calendar',
+            url: '/?view=chat',
+            icons: [{ src: 'tony-icon-192.png', sizes: '192x192' }]
+          }
         ]
       },
       workbox: {
